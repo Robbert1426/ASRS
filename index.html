@@ -129,6 +129,7 @@
     </div>
 
     <div class="print-btn-wrap" style="gap:10px;flex-wrap:wrap">
+      <button id="clearDataBtn" type="button" style="background:#7c2d12">Wis data</button>
       <button id="newAnalysisBtn" type="button" style="background:#374151">Vul nieuwe analyse in</button>
       <button id="savePdfBtn" type="button">Sla op als PDF</button>
     </div>
@@ -227,8 +228,43 @@ function avgTextValue(avg){ return avg === null ? '—' : avg.toFixed(2); }
 function encodeDataForPdf(data){
   try { return btoa(unescape(encodeURIComponent(JSON.stringify(data)))); } catch(e) { return ''; }
 }
+function sanitizeBase64(str){
+  return (str || '').replace(/[^A-Za-z0-9+/=]/g, '');
+}
 function decodeDataFromPdf(encoded){
-  try { return JSON.parse(decodeURIComponent(escape(atob(encoded)))); } catch(e) { return null; }
+  const clean = sanitizeBase64(encoded);
+  if (!clean) return null;
+  const attempts = [clean];
+  if (clean.length % 4 !== 0) attempts.push(clean + '='.repeat(4 - (clean.length % 4)));
+  for (const candidate of attempts) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(escape(atob(candidate))));
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && Array.isArray(parsed.history)) return parsed.history;
+    } catch(e) {}
+  }
+  return null;
+}
+function normalizeImportedEntries(entries){
+  return (entries || []).map(item => {
+    if (!item || !Array.isArray(item.rows)) return null;
+    const normalizedRows = item.rows.map(r => ({n:Number(r.n), value:r.value === null || r.value === undefined ? null : Number(r.value)}));
+    const total = Number.isFinite(item.total) ? Number(item.total) : normalizedRows.reduce((sum, r) => sum + (Number.isFinite(r.value) ? r.value : 0), 0);
+    const answered = normalizedRows.filter(r => Number.isFinite(r.value)).length;
+    const rowsA = normalizedRows.filter(r => r.n >= 1 && r.n <= 6 && Number.isFinite(r.value));
+    const rowsB = normalizedRows.filter(r => r.n >= 7 && r.n <= 18 && Number.isFinite(r.value));
+    const sumA = rowsA.reduce((sum, r) => sum + r.value, 0);
+    const sumB = rowsB.reduce((sum, r) => sum + r.value, 0);
+    return {
+      timestamp: item.timestamp || new Date().toISOString(),
+      total,
+      avgA: Number.isFinite(item.avgA) ? Number(item.avgA) : (rowsA.length ? sumA / rowsA.length : null),
+      avgB: Number.isFinite(item.avgB) ? Number(item.avgB) : (rowsB.length ? sumB / rowsB.length : null),
+      avgTotal: Number.isFinite(item.avgTotal) ? Number(item.avgTotal) : (answered ? total / answered : null),
+      rows: normalizedRows,
+      notes: item.notes || ''
+    };
+  }).filter(Boolean);
 }
 function mergeHistoryEntries(entries){
   const existing = getHistory();
@@ -572,14 +608,9 @@ document.getElementById('pdfImport').addEventListener('change', async (e) => {
   status.textContent = 'PDF wordt lokaal ingelezen...';
   try {
     const buf = new Uint8Array(await file.arrayBuffer());
-    const encoded = await extractEncodedHistoryFromPdfBytes(buf);
-    if (!encoded) {
-      status.textContent = 'Geen importeerbare ASRS-gegevens gevonden in deze PDF. Dit werkt het best met PDF’s die eerder vanuit deze pagina zijn opgeslagen.';
-      return;
-    }
-    const decoded = decodeDataFromPdf(encoded);
+    const decoded = await extractHistoryEntriesFromPdfBytes(buf);
     if (!Array.isArray(decoded) || !decoded.length) {
-      status.textContent = 'De PDF bevatte wel een code, maar die kon niet goed worden gelezen.';
+      status.textContent = 'Geen importeerbare ASRS-gegevens gevonden in deze PDF. Dit werkt het best met PDF’s die eerder vanuit deze pagina zijn opgeslagen.';
       return;
     }
     const merged = mergeHistoryEntries(decoded);
@@ -588,6 +619,28 @@ document.getElementById('pdfImport').addEventListener('change', async (e) => {
   } catch(err) {
     status.textContent = 'Importeren lukte niet op dit apparaat of met deze PDF.';
   }
+});
+
+
+document.getElementById('clearDataBtn').addEventListener('click', () => {
+  const hasCurrent = compute().answered > 0 || !!notesEl.value.trim();
+  const hasHistory = getHistory().length > 0;
+  if (!hasCurrent && !hasHistory) {
+    alert('Er is geen lokale data om te wissen.');
+    return;
+  }
+  const sure = window.confirm('Weet je zeker dat je alle lokale ASRS-data op dit apparaat wilt wissen? Dit verwijdert de huidige invoer én alle eerdere lokaal opgeslagen metingen.');
+  if (!sure) return;
+  localStorage.removeItem(storageKey);
+  localStorage.removeItem(historyKey);
+  Object.keys(formState).forEach(k => delete formState[k]);
+  questions.forEach(q => {
+    document.querySelectorAll(`input[name="q${q.n}"]`).forEach(inp => inp.checked = false);
+  });
+  notesEl.value = '';
+  document.getElementById('importStatus').textContent = 'Lokale data gewist.';
+  updateSummary();
+  window.scrollTo({top:0, behavior:'smooth'});
 });
 
 document.getElementById('savePdfBtn').addEventListener('click', () => {
