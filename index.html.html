@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>ASRS mobiel – offline</title>
+  <style>
+    :root{
+      --bg:#f6f7f8; --card:#ffffff; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+      --accent:#0f766e; --accent-soft:#ccfbf1; --shadow:0 12px 28px rgba(0,0,0,.08); --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    .wrap{max-width:880px;margin:0 auto;padding:16px 14px 120px}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin:12px 0}
+    h1,h2,h3{margin:0 0 10px}
+    h1{font-size:1.45rem;line-height:1.2}
+    h2{font-size:1.05rem}
+    h3{font-size:.98rem}
+    p{margin:8px 0;line-height:1.45}
+    .muted{color:var(--muted)}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:.9rem}
+    .question{padding:14px;border:1px solid var(--line);border-radius:16px;background:#fff;margin-bottom:12px}
+    .question-head{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px}
+    .qno{min-width:34px;height:34px;border-radius:999px;background:#eef2ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .qtext{font-size:1rem;line-height:1.4;flex:1}
+    .options{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+    @media (max-width:640px){.options{grid-template-columns:1fr}}
+    .opt input{display:none}
+    .opt label{display:block;border:1px solid var(--line);border-radius:14px;padding:12px 10px;text-align:center;font-size:.96rem;background:#fafafa;cursor:pointer;user-select:none}
+    .opt input:checked + label{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+    .scoreline{margin-top:10px;font-size:.92rem;color:var(--muted)}
+    .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    @media (max-width:640px){.summary-grid{grid-template-columns:1fr}}
+    .metric{padding:12px;border-radius:14px;background:#fff;border:1px solid var(--line)}
+    .metric .label{font-size:.86rem;color:var(--muted)}
+    .metric .value{font-size:1.35rem;font-weight:800;margin-top:4px}
+    .metric .sub{font-size:.9rem;color:var(--muted);margin-top:4px}
+    .top-list{margin:8px 0 0;padding-left:20px}
+    .top-list li{margin:8px 0;line-height:1.4}
+    .print-btn-wrap{position:sticky;bottom:10px;display:flex;justify-content:center;z-index:10}
+    button{appearance:none;border:none;border-radius:16px;padding:16px 18px;font-size:1rem;font-weight:800;cursor:pointer;background:var(--accent);color:#fff;box-shadow:var(--shadow)}
+    .footer-summary-anchor{scroll-margin-top:20px}
+    .print-only{display:none}
+    .screen-only{display:block}
+
+    @media print {
+      @page { size:A4; margin:10mm; }
+      body{background:#fff}
+      .screen-only,.print-btn-wrap{display:none !important}
+      .print-only{display:block !important}
+    }
+
+    .print-section{break-inside:avoid-page; page-break-inside:avoid; margin-bottom:12px}
+    .print-title{font-size:20px;font-weight:800;margin-bottom:6px}
+    .print-sub{font-size:12px;color:#4b5563;margin-bottom:8px}
+    .print-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+    .print-metric{border:1px solid #d1d5db;border-radius:10px;padding:10px}
+    .print-metric .k{font-size:11px;color:#6b7280}
+    .print-metric .v{font-size:18px;font-weight:800;margin-top:4px}
+    .print-metric .s{font-size:10px;color:#6b7280;margin-top:3px}
+    .print-table{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:10px}
+    .print-table th,.print-table td{border:1px solid #d1d5db;padding:5px 6px;vertical-align:top;text-align:left}
+    .print-table th{background:#f9fafb}
+    .small-note{font-size:10px;color:#6b7280;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap screen-only">
+    <div class="card">
+      <div class="pill">100% lokaal in je browser</div>
+      <h1>ASRS mobiel invulformulier</h1>
+      <p>Deze versie is bedoeld om makkelijk op een telefoon in te vullen. Alles draait lokaal in één HTML-bestand: geen server, geen cloud, geen externe libraries.</p>
+      <p class="muted">Scoring: Nooit=0, Zelden=1, Soms=2, Vaak=3, Zeer vaak=4.</p>
+    </div>
+
+    <div class="card" id="topSummary">
+      <h2>Live score</h2>
+      <div class="summary-grid">
+        <div class="metric"><div class="label">Deel A totaal</div><div class="value" id="scoreA_top">0</div><div class="sub" id="avgA_top">Gemiddelde: —</div></div>
+        <div class="metric"><div class="label">Deel B totaal</div><div class="value" id="scoreB_top">0</div><div class="sub" id="avgB_top">Gemiddelde: —</div></div>
+        <div class="metric"><div class="label">Totaal alle 18 vragen</div><div class="value" id="scoreTotal_top">0</div><div class="sub" id="avgTotal_top">Gemiddelde: —</div></div>
+      </div>
+      <div style="margin-top:12px">
+        <h3>Topscores</h3>
+        <ol class="top-list" id="topList_top"><li>Nog geen scores.</li></ol>
+      </div>
+    </div>
+
+    <div class="card"><h2>Deel A</h2><div id="questionsA"></div></div>
+    <div class="card"><h2>Deel B</h2><div id="questionsB"></div></div>
+
+    <div class="card footer-summary-anchor" id="bottomSummary">
+      <h2>Eindsamenvatting</h2>
+      <div class="summary-grid">
+        <div class="metric"><div class="label">Deel A totaal</div><div class="value" id="scoreA_bottom">0</div><div class="sub" id="avgA_bottom">Gemiddelde: —</div></div>
+        <div class="metric"><div class="label">Deel B totaal</div><div class="value" id="scoreB_bottom">0</div><div class="sub" id="avgB_bottom">Gemiddelde: —</div></div>
+        <div class="metric"><div class="label">Totaal alle 18 vragen</div><div class="value" id="scoreTotal_bottom">0</div><div class="sub" id="avgTotal_bottom">Gemiddelde: —</div></div>
+      </div>
+      <div style="margin-top:12px">
+        <h3>Top 5 hoogste scores</h3>
+        <ol class="top-list" id="topList_bottom"><li>Nog geen scores.</li></ol>
+      </div>
+    </div>
+
+    <div class="print-btn-wrap">
+      <button id="savePdfBtn">Sla op als PDF</button>
+    </div>
+  </div>
+
+  <div class="print-only" id="printRoot">
+    <section class="print-section">
+      <div class="print-title">ASRS-v1.1 samenvatting</div>
+      <div class="print-sub" id="printDateLine"></div>
+      <div class="print-grid">
+        <div class="print-metric"><div class="k">Deel A totaal</div><div class="v" id="p_scoreA">0</div><div class="s" id="p_avgA">Gemiddelde: —</div></div>
+        <div class="print-metric"><div class="k">Deel B totaal</div><div class="v" id="p_scoreB">0</div><div class="s" id="p_avgB">Gemiddelde: —</div></div>
+        <div class="print-metric"><div class="k">Totaal alle 18 vragen</div><div class="v" id="p_scoreTotal">0</div><div class="s" id="p_avgTotal">Gemiddelde: —</div></div>
+      </div>
+      <h3 style="margin-top:12px">Top 5 hoogste scores</h3>
+      <ol id="p_topList" style="font-size:11.5px;line-height:1.35;padding-left:18px"><li>Nog geen scores.</li></ol>
+      <div class="small-note">Likertscoring: Nooit=0, Zelden=1, Soms=2, Vaak=3, Zeer vaak=4.</div>
+    </section>
+
+    <section class="print-section">
+      <div class="print-title">ASRS-v1.1 scores per vraag</div>
+      <div class="print-sub">Alle antwoorden en numerieke scores per item.</div>
+      <table class="print-table">
+        <thead>
+          <tr><th style="width:6%">#</th><th style="width:8%">Deel</th><th>Vraag</th><th style="width:15%">Antwoord</th><th style="width:7%">Score</th></tr>
+        </thead>
+        <tbody id="printRows"></tbody>
+      </table>
+    </section>
+  </div>
+
+<script>
+const choices = [
+  {label:'Nooit', value:0},
+  {label:'Zelden', value:1},
+  {label:'Soms', value:2},
+  {label:'Vaak', value:3},
+  {label:'Zeer vaak', value:4}
+];
+
+const questions = [
+  {n:1, part:'A', text:'Hoe vaak hebt u moeite om de laatste details van een taak af te werken nadat u de meest boeiende delen ervan al hebt voltooid?'},
+  {n:2, part:'A', text:'Hoe vaak hebt u problemen om de dingen goed op een rijtje te zetten als u een complexe taak moet organiseren?'},
+  {n:3, part:'A', text:'Hoe vaak hebt u moeite om afspraken of verplichtingen te onthouden?'},
+  {n:4, part:'A', text:'Hoe vaak vermijdt u een taak of stelt u een taak uit als u hiervoor veel moet nadenken?'},
+  {n:5, part:'A', text:'Hoe vaak wriemelt u met uw handen of voeten of kan u deze niet stil houden wanneer u een lange tijd moet blijven zitten?'},
+  {n:6, part:'A', text:'Hoe vaak voelt u zich overactief en gedwongen om dingen te doen, alsof u door een motor wordt aangedreven?'},
+  {n:7, part:'B', text:'Hoe vaak maakt u fouten door slordigheid wanneer u een saaie of moeilijke opdracht moet uitvoeren?'},
+  {n:8, part:'B', text:'Hoe vaak hebt u het moeilijk om uw aandacht erbij te houden wanneer u werk moet verrichten dat saai is of waarin veel herhaling zit?'},
+  {n:9, part:'B', text:'Hoe vaak hebt u het moeilijk zich te concentreren op wat mensen tegen u zeggen, zelfs wanneer ze zich rechtstreeks tot u richten?'},
+  {n:10, part:'B', text:'Hoe vaak legt u dingen verloren of hebt u moeite om dingen terug te vinden, thuis of op het werk?'},
+  {n:11, part:'B', text:'Hoe vaak wordt u afgeleid door activiteiten of lawaai in uw omgeving?'},
+  {n:12, part:'B', text:'Hoe vaak staat u eens recht tijdens bijeenkomsten of in andere situaties waar van u wordt verwacht dat u blijft zitten?'},
+  {n:13, part:'B', text:'Hoe vaak voelt u zich rusteloos of kan u zich niet stil houden?'},
+  {n:14, part:'B', text:'Hoe vaak hebt u moeite om tot rust te komen en u te ontspannen wanneer u tijd voor uzelf hebt?'},
+  {n:15, part:'B', text:'Hoe vaak komt het voor dat u teveel praat in sociale situaties?'},
+  {n:16, part:'B', text:'Wanneer u zich in een conversatie bevindt, hoe vaak komt het voor dat u de zinnen van uw gesprekspartner zelf afmaakt vóór hij of zij dat zelf kan doen?'},
+  {n:17, part:'B', text:'Hoe vaak hebt u het moeilijk om uw beurt af te wachten in situaties waarin dit vereist is?'},
+  {n:18, part:'B', text:'Hoe vaak stoort u andere mensen wanneer zij met iets bezig zijn?'}
+];
+
+const formState = {};
+const questionsA = document.getElementById('questionsA');
+const questionsB = document.getElementById('questionsB');
+const storageKey = 'asrs_mobile_offline_v3';
+
+function valueToLabel(v){ return choices.find(c => c.value === v)?.label || '—'; }
+function avgLabel(avg){
+  if (avg === null || Number.isNaN(avg)) return '—';
+  const lower = Math.floor(avg);
+  const upper = Math.ceil(avg);
+  if (lower === upper) return valueToLabel(lower).toLowerCase();
+  return `tussen ${valueToLabel(lower).toLowerCase()} en ${valueToLabel(upper).toLowerCase()}`;
+}
+function avgText(sum, count){
+  const avg = count ? sum / count : null;
+  return avg === null ? 'Gemiddelde: —' : `Gemiddelde: ${avg.toFixed(2)} (${avgLabel(avg)})`;
+}
+
+function createQuestion(q){
+  const wrapper = document.createElement('div');
+  wrapper.className = 'question';
+  wrapper.innerHTML = `
+    <div class="question-head">
+      <div class="qno">${q.n}</div>
+      <div class="qtext">${q.text}</div>
+    </div>
+    <div class="options">
+      ${choices.map(c => `
+        <div class="opt">
+          <input type="radio" id="q${q.n}_${c.value}" name="q${q.n}" value="${c.value}">
+          <label for="q${q.n}_${c.value}">${c.label}</label>
+        </div>`).join('')}
+    </div>
+    <div class="scoreline" id="scoreTag${q.n}">Score: —</div>
+  `;
+
+  wrapper.querySelectorAll(`input[name="q${q.n}"]`).forEach(input => {
+    input.addEventListener('change', () => {
+      formState[q.n] = Number(input.value);
+      persist();
+      updateSummary();
+    });
+  });
+  return wrapper;
+}
+
+questions.filter(q => q.part === 'A').forEach(q => questionsA.appendChild(createQuestion(q)));
+questions.filter(q => q.part === 'B').forEach(q => questionsB.appendChild(createQuestion(q)));
+
+function compute(){
+  const rows = questions.map(q => {
+    const value = Number.isInteger(formState[q.n]) ? formState[q.n] : null;
+    return {...q, value, answer: valueToLabel(value)};
+  });
+  const rowsA = rows.filter(r => r.part === 'A' && r.value !== null);
+  const rowsB = rows.filter(r => r.part === 'B' && r.value !== null);
+  const scoreA = rowsA.reduce((a,b)=>a+b.value,0);
+  const scoreB = rowsB.reduce((a,b)=>a+b.value,0);
+  const total = scoreA + scoreB;
+  const answered = rows.filter(r => r.value !== null).length;
+  const answeredRows = rows.filter(r => r.value !== null).sort((a,b) => b.value - a.value || a.n - b.n);
+  let topRows = [];
+  if (answeredRows.length) {
+    const fifthValue = answeredRows[Math.min(4, answeredRows.length - 1)].value;
+    topRows = answeredRows.filter(r => r.value >= fifthValue);
+  }
+  return { rows, scoreA, scoreB, total, answered, topRows };
+}
+
+function setText(id, text){ const el = document.getElementById(id); if (el) el.textContent = text; }
+function formatTopListItem(r){
+  return `<li><strong>Vraag ${r.n} (${r.part})</strong> — ${r.text}<br>${r.answer} (${r.value})</li>`;
+}
+function fillTopList(id, rows){
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!rows.length) { el.innerHTML = '<li>Nog geen scores.</li>'; return; }
+  el.innerHTML = rows.map(formatTopListItem).join('');
+}
+
+function updateSummary(){
+  const r = compute();
+  const countA = r.rows.filter(x => x.part === 'A' && x.value !== null).length;
+  const countB = r.rows.filter(x => x.part === 'B' && x.value !== null).length;
+
+  ['top','bottom'].forEach(pos => {
+    setText(`scoreA_${pos}`, r.scoreA);
+    setText(`scoreB_${pos}`, r.scoreB);
+    setText(`scoreTotal_${pos}`, r.total);
+    setText(`avgA_${pos}`, avgText(r.scoreA, countA));
+    setText(`avgB_${pos}`, avgText(r.scoreB, countB));
+    setText(`avgTotal_${pos}`, avgText(r.total, r.answered));
+    fillTopList(`topList_${pos}`, r.topRows);
+  });
+
+  r.rows.forEach(row => {
+    const s = document.getElementById(`scoreTag${row.n}`);
+    s.textContent = `Score: ${row.value ?? '—'}${row.value !== null ? ' (' + row.answer + ')' : ''}`;
+  });
+
+  setText('p_scoreA', r.scoreA);
+  setText('p_scoreB', r.scoreB);
+  setText('p_scoreTotal', r.total);
+  setText('p_avgA', avgText(r.scoreA, countA));
+  setText('p_avgB', avgText(r.scoreB, countB));
+  setText('p_avgTotal', avgText(r.total, r.answered));
+  fillTopList('p_topList', r.topRows);
+
+  const now = new Date();
+  setText('printDateLine', `Automatisch gegenereerd op ${now.toLocaleDateString('nl-NL')} om ${now.toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'})}.`);
+
+  const tbody = document.getElementById('printRows');
+  tbody.innerHTML = r.rows.map(row => `
+    <tr>
+      <td>${row.n}</td>
+      <td>${row.part}</td>
+      <td>${row.text}</td>
+      <td>${row.answer}</td>
+      <td>${row.value ?? '—'}</td>
+    </tr>`).join('');
+}
+
+function persist(){
+  localStorage.setItem(storageKey, JSON.stringify({savedAt:new Date().toISOString(), responses:formState}));
+}
+function restore(){
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    Object.entries(parsed.responses || {}).forEach(([k,v]) => {
+      formState[k] = v;
+      const input = document.getElementById(`q${k}_${v}`);
+      if (input) input.checked = true;
+    });
+  } catch(e) {}
+}
+
+document.getElementById('savePdfBtn').addEventListener('click', () => {
+  updateSummary();
+  window.print();
+});
+
+restore();
+updateSummary();
+</script>
+</body>
+</html>
