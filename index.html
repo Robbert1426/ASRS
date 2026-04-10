@@ -128,8 +128,9 @@
       <div id="deltaText" class="small" style="margin-top:10px"></div>
     </div>
 
-    <div class="print-btn-wrap">
-      <button id="savePdfBtn">Sla op als PDF</button>
+    <div class="print-btn-wrap" style="gap:10px;flex-wrap:wrap">
+      <button id="newAnalysisBtn" type="button" style="background:#374151">Vul nieuwe analyse in</button>
+      <button id="savePdfBtn" type="button">Sla op als PDF</button>
     </div>
   </div>
 
@@ -161,6 +162,7 @@
         <tbody id="printHistoryRows"></tbody>
       </table>
       <div id="pdfDataMarker" class="tiny-marker"></div>
+      <div id="pdfDataFallback" class="small-note">Herstelcode voor lokale import: —</div>
     </section>
 
     <section class="print-section">
@@ -209,8 +211,8 @@ const formState = {};
 const questionsA = document.getElementById('questionsA');
 const questionsB = document.getElementById('questionsB');
 const notesEl = document.getElementById('notes');
-const storageKey = 'asrs_mobile_offline_v5_current';
-const historyKey = 'asrs_mobile_offline_v5_history';
+const storageKey = 'asrs_mobile_offline_v6_current';
+const historyKey = 'asrs_mobile_offline_v6_history';
 
 function valueToLabel(v){ return choices.find(c => c.value === v)?.label || '—'; }
 function avgLabel(avg){
@@ -240,15 +242,32 @@ function mergeHistoryEntries(entries){
   localStorage.setItem(historyKey, JSON.stringify(merged));
   return merged;
 }
-function extractEncodedHistoryFromPdfBytes(uint8){
-  let text = '';
-  const chunk = 50000;
-  for (let i = 0; i < uint8.length; i += chunk) {
-    text += String.fromCharCode.apply(null, uint8.subarray(i, Math.min(i + chunk, uint8.length)));
+async function extractEncodedHistoryFromPdfBytes(uint8){
+  const decoder = new TextDecoder('latin1');
+  const rawText = decoder.decode(uint8);
+  const directMatch = rawText.match(/ASRSHIST:([A-Za-z0-9+/=\s]+)/);
+  if (directMatch) return directMatch[1].replace(/\s+/g,'');
+  const streamRegex = /<<(?:.|\n|\r)*?\/FlateDecode(?:.|\n|\r)*?>>\s*stream\r?\n/g;
+  let match;
+  while ((match = streamRegex.exec(rawText)) !== null) {
+    const streamStart = match.index + match[0].length;
+    const endIdx = rawText.indexOf('endstream', streamStart);
+    if (endIdx === -1) continue;
+    let start = streamStart;
+    while (start < uint8.length && (uint8[start] === 10 || uint8[start] === 13)) start++;
+    let end = endIdx;
+    while (end > start && (uint8[end-1] === 10 || uint8[end-1] === 13)) end--;
+    const compressed = uint8.slice(start, end);
+    try {
+      const ds = new DecompressionStream('deflate');
+      const decompressedStream = new Blob([compressed]).stream().pipeThrough(ds);
+      const ab = await new Response(decompressedStream).arrayBuffer();
+      const txt = decoder.decode(new Uint8Array(ab));
+      const m = txt.match(/ASRSHIST:([A-Za-z0-9+/=\s]+)/);
+      if (m) return m[1].replace(/\s+/g,'');
+    } catch (e) {}
   }
-  const match = text.match(/ASRSHIST:([A-Za-z0-9+/=\s]+)/);
-  if (!match) return null;
-  return match[1].replace(/\s+/g,'');
+  return null;
 }
 
 function createQuestion(q){
@@ -433,7 +452,9 @@ function renderHistory(current){
     drawTrend(combined);
     drawDelta(null);
     document.getElementById('deltaText').textContent = 'Na je eerste opgeslagen PDF verschijnen hier de vergelijkingen.';
-    document.getElementById('pdfDataMarker').textContent = current.answered ? 'ASRSHIST:' + encodeDataForPdf(combined.map(({current, ...rest}) => rest)) : '';
+    const encoded = current.answered ? encodeDataForPdf(combined.map(({current, ...rest}) => rest)) : '';
+    document.getElementById('pdfDataMarker').textContent = encoded ? 'ASRSHIST:' + encoded : '';
+    document.getElementById('pdfDataFallback').textContent = encoded ? 'Herstelcode voor lokale import: ASRSHIST:' + encoded.match(/.{1,80}/g).join(' ') : 'Herstelcode voor lokale import: —';
     return;
   }
   meta.textContent = `${history.length} eerdere meting(en) gevonden op dit apparaat.`;
@@ -444,7 +465,9 @@ function renderHistory(current){
   const summaryText = buildHistorySummaryText(prev, current);
   printSummaryEl.textContent = summaryText;
   printRowsEl.innerHTML = combined.map((item, idx) => `<tr><td>${item.current ? 'Huidig' : 'Meting ' + (idx + 1)}</td><td>${new Date(item.timestamp).toLocaleDateString('nl-NL')}</td><td>${item.total ?? '—'}</td><td>${avgTextValue(item.avgTotal ?? null)}</td><td>${item.current ? 'Wordt in deze PDF opgeslagen' : 'Eerder meetmoment'}</td></tr>`).join('');
-  document.getElementById('pdfDataMarker').textContent = 'ASRSHIST:' + encodeDataForPdf(combined.map(({current, ...rest}) => rest));
+  const encoded = encodeDataForPdf(combined.map(({current, ...rest}) => rest));
+  document.getElementById('pdfDataMarker').textContent = 'ASRSHIST:' + encoded;
+  document.getElementById('pdfDataFallback').textContent = 'Herstelcode voor lokale import: ASRSHIST:' + encoded.match(/.{1,80}/g).join(' ');
 }
 
 function computeDiff(prev, current){
@@ -549,7 +572,7 @@ document.getElementById('pdfImport').addEventListener('change', async (e) => {
   status.textContent = 'PDF wordt lokaal ingelezen...';
   try {
     const buf = new Uint8Array(await file.arrayBuffer());
-    const encoded = extractEncodedHistoryFromPdfBytes(buf);
+    const encoded = await extractEncodedHistoryFromPdfBytes(buf);
     if (!encoded) {
       status.textContent = 'Geen importeerbare ASRS-gegevens gevonden in deze PDF. Dit werkt het best met PDF’s die eerder vanuit deze pagina zijn opgeslagen.';
       return;
@@ -574,9 +597,48 @@ document.getElementById('savePdfBtn').addEventListener('click', () => {
   window.print();
 });
 
+
+let pendingClearAfterPrint = false;
+
+function clearCurrentForm(){
+  Object.keys(formState).forEach(k => delete formState[k]);
+  questions.forEach(q => {
+    document.querySelectorAll(`input[name="q${q.n}"]`).forEach(inp => inp.checked = false);
+  });
+  notesEl.value = '';
+  persist();
+  updateSummary();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+window.addEventListener('afterprint', () => {
+  if (pendingClearAfterPrint) {
+    pendingClearAfterPrint = false;
+    clearCurrentForm();
+  }
+});
+
+document.getElementById('newAnalysisBtn').addEventListener('click', () => {
+  const result = compute();
+  if (result.answered === 0 && !result.notes) {
+    clearCurrentForm();
+    return;
+  }
+  const wantsSave = window.confirm('Wil je eerst aanbieden om de huidige meting als PDF op te slaan voordat je een nieuwe analyse invult?');
+  if (wantsSave) {
+    saveSnapshotToHistory(result);
+    updateSummary();
+    pendingClearAfterPrint = true;
+    window.print();
+    return;
+  }
+  const sureClear = window.confirm('Weet je zeker dat je de huidige invoer wilt leegmaken en een nieuwe analyse wilt starten?');
+  if (sureClear) clearCurrentForm();
+});
+
+
 restore();
 updateSummary();
 </script>
 </body>
 </html>
-
