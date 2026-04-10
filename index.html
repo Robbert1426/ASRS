@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>ASRS mobiel – offline</title>
+  <title>ASRS mobiel – lokaal</title>
   <style>
     :root{
       --bg:#f6f7f8; --card:#ffffff; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
@@ -12,11 +12,11 @@
     *{box-sizing:border-box}
     html{scroll-behavior:smooth}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-    .wrap{max-width:880px;margin:0 auto;padding:16px 14px 120px}
+    .wrap{max-width:920px;margin:0 auto;padding:16px 14px 120px}
     .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin:12px 0}
     h1,h2,h3{margin:0 0 10px}
     h1{font-size:1.45rem;line-height:1.2}
-    h2{font-size:1.05rem}
+    h2{font-size:1.08rem}
     h3{font-size:.98rem}
     p{margin:8px 0;line-height:1.45}
     .muted{color:var(--muted)}
@@ -31,19 +31,28 @@
     .opt label{display:block;border:1px solid var(--line);border-radius:14px;padding:12px 10px;text-align:center;font-size:.96rem;background:#fafafa;cursor:pointer;user-select:none}
     .opt input:checked + label{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
     .scoreline{margin-top:10px;font-size:.92rem;color:var(--muted)}
-    .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
     @media (max-width:640px){.summary-grid{grid-template-columns:1fr}}
     .metric{padding:12px;border-radius:14px;background:#fff;border:1px solid var(--line)}
     .metric .label{font-size:.86rem;color:var(--muted)}
     .metric .value{font-size:1.35rem;font-weight:800;margin-top:4px}
     .metric .sub{font-size:.9rem;color:var(--muted);margin-top:4px}
     .top-list{margin:8px 0 0;padding-left:20px}
-    .top-list li{margin:8px 0;line-height:1.4}
+    .top-list li{margin:10px 0;line-height:1.45}
+    .helper{font-size:.9rem;color:var(--muted)}
+    .notes{width:100%;min-height:140px;border:1px solid var(--line);border-radius:14px;padding:12px;font:inherit;resize:vertical;background:#fff}
+    .chart-wrap{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fff}
+    .chart-title{font-size:.95rem;font-weight:700;margin-bottom:8px}
+    canvas{display:block;width:100%;height:auto;max-width:100%;background:#fff;border-radius:10px}
     .print-btn-wrap{position:sticky;bottom:10px;display:flex;justify-content:center;z-index:10}
     button{appearance:none;border:none;border-radius:16px;padding:16px 18px;font-size:1rem;font-weight:800;cursor:pointer;background:var(--accent);color:#fff;box-shadow:var(--shadow)}
     .footer-summary-anchor{scroll-margin-top:20px}
     .print-only{display:none}
     .screen-only{display:block}
+    .small{font-size:.85rem}
+    .linkish{color:var(--accent);text-decoration:underline;cursor:pointer;font-weight:600}
+    .file-input{display:block;width:100%;padding:12px;border:1px dashed var(--line);border-radius:14px;background:#fff}
+    .tiny-marker{font-size:1px;color:#fff;line-height:1;word-break:break-all;max-height:2px;overflow:hidden}
 
     @media print {
       @page { size:A4; margin:10mm; }
@@ -53,9 +62,9 @@
     }
 
     .print-section{break-inside:avoid-page; page-break-inside:avoid; margin-bottom:12px}
-    .print-title{font-size:20px;font-weight:800;margin-bottom:6px}
+    .print-title{font-size:19px;font-weight:800;margin-bottom:6px}
     .print-sub{font-size:12px;color:#4b5563;margin-bottom:8px}
-    .print-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+    .print-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
     .print-metric{border:1px solid #d1d5db;border-radius:10px;padding:10px}
     .print-metric .k{font-size:11px;color:#6b7280}
     .print-metric .v{font-size:18px;font-weight:800;margin-top:4px}
@@ -64,44 +73,59 @@
     .print-table th,.print-table td{border:1px solid #d1d5db;padding:5px 6px;vertical-align:top;text-align:left}
     .print-table th{background:#f9fafb}
     .small-note{font-size:10px;color:#6b7280;margin-top:8px}
+    .print-notes{white-space:pre-wrap;border:1px solid #d1d5db;border-radius:10px;padding:10px;font-size:11px;line-height:1.4;background:#fff}
   </style>
 </head>
 <body>
   <div class="wrap screen-only">
     <div class="card">
-      <div class="pill">100% lokaal in je browser</div>
+      <div class="pill">Alles draait lokaal</div>
       <h1>ASRS mobiel invulformulier</h1>
-      <p>Deze versie is bedoeld om makkelijk op een telefoon in te vullen. Alles draait lokaal in één HTML-bestand: geen server, geen cloud, geen externe libraries.</p>
-      <p class="muted">Scoring: Nooit=0, Zelden=1, Soms=2, Vaak=3, Zeer vaak=4.</p>
-    </div>
-
-    <div class="card" id="topSummary">
-      <h2>Live score</h2>
-      <div class="summary-grid">
-        <div class="metric"><div class="label">Deel A totaal</div><div class="value" id="scoreA_top">0</div><div class="sub" id="avgA_top">Gemiddelde: —</div></div>
-        <div class="metric"><div class="label">Deel B totaal</div><div class="value" id="scoreB_top">0</div><div class="sub" id="avgB_top">Gemiddelde: —</div></div>
-        <div class="metric"><div class="label">Totaal alle 18 vragen</div><div class="value" id="scoreTotal_top">0</div><div class="sub" id="avgTotal_top">Gemiddelde: —</div></div>
-      </div>
-      <div style="margin-top:12px">
-        <h3>Topscores</h3>
-        <ol class="top-list" id="topList_top"><li>Nog geen scores.</li></ol>
-      </div>
+      <p>Alles draait lokaal in je browser en wordt niet door de website opgeslagen.</p>
+      <p class="muted">Scoring: Nooit = 0, Zelden = 1, Soms = 2, Vaak = 3, Zeer vaak = 4.</p>
     </div>
 
     <div class="card"><h2>Deel A</h2><div id="questionsA"></div></div>
     <div class="card"><h2>Deel B</h2><div id="questionsB"></div></div>
 
+    <div class="card">
+      <h2>Notitie</h2>
+      <p class="helper">Hoe komt het dat mijn score hoger/lager/zelfde uitvalt? Wat moet ik doen? Welke situatie speelde mee?</p>
+      <textarea id="notes" class="notes" placeholder="Typ hier je notitie..."></textarea>
+    </div>
+
     <div class="card footer-summary-anchor" id="bottomSummary">
       <h2>Eindsamenvatting</h2>
       <div class="summary-grid">
-        <div class="metric"><div class="label">Deel A totaal</div><div class="value" id="scoreA_bottom">0</div><div class="sub" id="avgA_bottom">Gemiddelde: —</div></div>
-        <div class="metric"><div class="label">Deel B totaal</div><div class="value" id="scoreB_bottom">0</div><div class="sub" id="avgB_bottom">Gemiddelde: —</div></div>
-        <div class="metric"><div class="label">Totaal alle 18 vragen</div><div class="value" id="scoreTotal_bottom">0</div><div class="sub" id="avgTotal_bottom">Gemiddelde: —</div></div>
+        <div class="metric"><div class="label">Gemiddelde Deel A</div><div class="value" id="avgA_value">—</div><div class="sub" id="avgA_zone">—</div></div>
+        <div class="metric"><div class="label">Gemiddelde Deel B</div><div class="value" id="avgB_value">—</div><div class="sub" id="avgB_zone">—</div></div>
+        <div class="metric"><div class="label">Totaalscore alle 18 vragen</div><div class="value" id="scoreTotal_bottom">0</div><div class="sub">Som van alle items</div></div>
+        <div class="metric"><div class="label">Gemiddelde totaal</div><div class="value" id="avgTotal_value">—</div><div class="sub" id="avgTotal_zone">—</div></div>
       </div>
       <div style="margin-top:12px">
         <h3>Top 5 hoogste scores</h3>
         <ol class="top-list" id="topList_bottom"><li>Nog geen scores.</li></ol>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Vergelijking voorgaande keren</h2>
+      <p class="helper">Deze vergelijking werkt lokaal op hetzelfde apparaat en in dezelfde browser. Je kunt ook een eerder PDF-verslag van deze pagina importeren om oude metingen terug te zetten.</p>
+      <div style="margin:10px 0 14px">
+        <label for="pdfImport" class="file-input">Importeer een eerder ASRS-PDF-verslag om oude metingen terug te zetten</label>
+        <input id="pdfImport" type="file" accept="application/pdf" style="margin-top:10px;width:100%">
+        <div id="importStatus" class="small muted" style="margin-top:8px">Nog geen PDF geïmporteerd.</div>
+      </div>
+      <div id="historyMeta" class="small muted">Nog geen eerdere metingen gevonden.</div>
+      <div class="chart-wrap">
+        <div class="chart-title">Totaalscore over tijd</div>
+        <canvas id="trendCanvas" width="800" height="240"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Verschil ten opzichte van de vorige keer</div>
+        <canvas id="deltaCanvas" width="800" height="320"></canvas>
+      </div>
+      <div id="deltaText" class="small" style="margin-top:10px"></div>
     </div>
 
     <div class="print-btn-wrap">
@@ -114,13 +138,29 @@
       <div class="print-title">ASRS-v1.1 samenvatting</div>
       <div class="print-sub" id="printDateLine"></div>
       <div class="print-grid">
-        <div class="print-metric"><div class="k">Deel A totaal</div><div class="v" id="p_scoreA">0</div><div class="s" id="p_avgA">Gemiddelde: —</div></div>
-        <div class="print-metric"><div class="k">Deel B totaal</div><div class="v" id="p_scoreB">0</div><div class="s" id="p_avgB">Gemiddelde: —</div></div>
-        <div class="print-metric"><div class="k">Totaal alle 18 vragen</div><div class="v" id="p_scoreTotal">0</div><div class="s" id="p_avgTotal">Gemiddelde: —</div></div>
+        <div class="print-metric"><div class="k">Gemiddelde Deel A</div><div class="v" id="p_avgA_value">—</div><div class="s" id="p_avgA_zone">—</div></div>
+        <div class="print-metric"><div class="k">Gemiddelde Deel B</div><div class="v" id="p_avgB_value">—</div><div class="s" id="p_avgB_zone">—</div></div>
+        <div class="print-metric"><div class="k">Totaalscore alle 18 vragen</div><div class="v" id="p_scoreTotal">0</div><div class="s">Som van alle items</div></div>
+        <div class="print-metric"><div class="k">Gemiddelde totaal</div><div class="v" id="p_avgTotal_value">—</div><div class="s" id="p_avgTotal_zone">—</div></div>
       </div>
       <h3 style="margin-top:12px">Top 5 hoogste scores</h3>
       <ol id="p_topList" style="font-size:11.5px;line-height:1.35;padding-left:18px"><li>Nog geen scores.</li></ol>
+      <h3 style="margin-top:12px">Notitie</h3>
+      <div class="print-notes" id="p_notes">—</div>
       <div class="small-note">Likertscoring: Nooit=0, Zelden=1, Soms=2, Vaak=3, Zeer vaak=4.</div>
+    </section>
+
+    <section class="print-section">
+      <div class="print-title">Vergelijking voorgaande keren</div>
+      <div class="print-sub" id="p_historyMeta">Nog geen eerdere metingen gevonden.</div>
+      <div class="print-notes" id="p_historySummary">Nog geen vergelijking beschikbaar.</div>
+      <table class="print-table" style="margin-top:10px">
+        <thead>
+          <tr><th style="width:20%">Meting</th><th style="width:24%">Datum</th><th style="width:14%">Totaal</th><th style="width:14%">Gem. totaal</th><th>Opmerking</th></tr>
+        </thead>
+        <tbody id="printHistoryRows"></tbody>
+      </table>
+      <div id="pdfDataMarker" class="tiny-marker"></div>
     </section>
 
     <section class="print-section">
@@ -168,7 +208,9 @@ const questions = [
 const formState = {};
 const questionsA = document.getElementById('questionsA');
 const questionsB = document.getElementById('questionsB');
-const storageKey = 'asrs_mobile_offline_v3';
+const notesEl = document.getElementById('notes');
+const storageKey = 'asrs_mobile_offline_v5_current';
+const historyKey = 'asrs_mobile_offline_v5_history';
 
 function valueToLabel(v){ return choices.find(c => c.value === v)?.label || '—'; }
 function avgLabel(avg){
@@ -178,9 +220,35 @@ function avgLabel(avg){
   if (lower === upper) return valueToLabel(lower).toLowerCase();
   return `tussen ${valueToLabel(lower).toLowerCase()} en ${valueToLabel(upper).toLowerCase()}`;
 }
-function avgText(sum, count){
-  const avg = count ? sum / count : null;
-  return avg === null ? 'Gemiddelde: —' : `Gemiddelde: ${avg.toFixed(2)} (${avgLabel(avg)})`;
+function avgValue(sum, count){ return count ? (sum / count) : null; }
+function avgTextValue(avg){ return avg === null ? '—' : avg.toFixed(2); }
+function encodeDataForPdf(data){
+  try { return btoa(unescape(encodeURIComponent(JSON.stringify(data)))); } catch(e) { return ''; }
+}
+function decodeDataFromPdf(encoded){
+  try { return JSON.parse(decodeURIComponent(escape(atob(encoded)))); } catch(e) { return null; }
+}
+function mergeHistoryEntries(entries){
+  const existing = getHistory();
+  const map = new Map();
+  [...existing, ...(entries || [])].forEach(item => {
+    if (!item || !item.timestamp || !Array.isArray(item.rows)) return;
+    const key = item.timestamp + '|' + JSON.stringify(item.rows) + '|' + (item.notes || '');
+    map.set(key, item);
+  });
+  const merged = Array.from(map.values()).sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)).slice(-60);
+  localStorage.setItem(historyKey, JSON.stringify(merged));
+  return merged;
+}
+function extractEncodedHistoryFromPdfBytes(uint8){
+  let text = '';
+  const chunk = 50000;
+  for (let i = 0; i < uint8.length; i += chunk) {
+    text += String.fromCharCode.apply(null, uint8.subarray(i, Math.min(i + chunk, uint8.length)));
+  }
+  const match = text.match(/ASRSHIST:([A-Za-z0-9+/=\s]+)/);
+  if (!match) return null;
+  return match[1].replace(/\s+/g,'');
 }
 
 function createQuestion(q){
@@ -213,6 +281,7 @@ function createQuestion(q){
 
 questions.filter(q => q.part === 'A').forEach(q => questionsA.appendChild(createQuestion(q)));
 questions.filter(q => q.part === 'B').forEach(q => questionsB.appendChild(createQuestion(q)));
+notesEl.addEventListener('input', () => { persist(); updateSummary(); });
 
 function compute(){
   const rows = questions.map(q => {
@@ -225,70 +294,38 @@ function compute(){
   const scoreB = rowsB.reduce((a,b)=>a+b.value,0);
   const total = scoreA + scoreB;
   const answered = rows.filter(r => r.value !== null).length;
+  const avgA = avgValue(scoreA, rowsA.length);
+  const avgB = avgValue(scoreB, rowsB.length);
+  const avgTotal = avgValue(total, answered);
   const answeredRows = rows.filter(r => r.value !== null).sort((a,b) => b.value - a.value || a.n - b.n);
   let topRows = [];
+  let fifthValue = null;
   if (answeredRows.length) {
-    const fifthValue = answeredRows[Math.min(4, answeredRows.length - 1)].value;
+    fifthValue = answeredRows[Math.min(4, answeredRows.length - 1)].value;
     topRows = answeredRows.filter(r => r.value >= fifthValue);
   }
-  return { rows, scoreA, scoreB, total, answered, topRows };
+  return { rows, scoreA, scoreB, total, answered, avgA, avgB, avgTotal, topRows, fifthValue, notes: notesEl.value.trim() };
 }
 
 function setText(id, text){ const el = document.getElementById(id); if (el) el.textContent = text; }
-function formatTopListItem(r){
-  return `<li><strong>Vraag ${r.n} (${r.part})</strong> — ${r.text}<br>${r.answer} (${r.value})</li>`;
+function esc(s){ return (s || '').replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+function formatTopListItem(r, fifthValue, includeSharedNote){
+  const note = includeSharedNote && r.value === fifthValue ? ' <em>(gedeelde vijfde plek)</em>' : '';
+  return `<li><strong>Vraag ${r.n} (${r.part})</strong>${note}<br>${esc(r.text)}<br>${r.answer} (${r.value})</li>`;
 }
-function fillTopList(id, rows){
+function fillTopList(id, rows, fifthValue){
   const el = document.getElementById(id);
   if (!el) return;
   if (!rows.length) { el.innerHTML = '<li>Nog geen scores.</li>'; return; }
-  el.innerHTML = rows.map(formatTopListItem).join('');
+  const extraShared = rows.length > 5;
+  el.innerHTML = rows.map((row, idx) => formatTopListItem(row, fifthValue, extraShared && idx >= 4)).join('');
 }
 
-function updateSummary(){
-  const r = compute();
-  const countA = r.rows.filter(x => x.part === 'A' && x.value !== null).length;
-  const countB = r.rows.filter(x => x.part === 'B' && x.value !== null).length;
-
-  ['top','bottom'].forEach(pos => {
-    setText(`scoreA_${pos}`, r.scoreA);
-    setText(`scoreB_${pos}`, r.scoreB);
-    setText(`scoreTotal_${pos}`, r.total);
-    setText(`avgA_${pos}`, avgText(r.scoreA, countA));
-    setText(`avgB_${pos}`, avgText(r.scoreB, countB));
-    setText(`avgTotal_${pos}`, avgText(r.total, r.answered));
-    fillTopList(`topList_${pos}`, r.topRows);
-  });
-
-  r.rows.forEach(row => {
-    const s = document.getElementById(`scoreTag${row.n}`);
-    s.textContent = `Score: ${row.value ?? '—'}${row.value !== null ? ' (' + row.answer + ')' : ''}`;
-  });
-
-  setText('p_scoreA', r.scoreA);
-  setText('p_scoreB', r.scoreB);
-  setText('p_scoreTotal', r.total);
-  setText('p_avgA', avgText(r.scoreA, countA));
-  setText('p_avgB', avgText(r.scoreB, countB));
-  setText('p_avgTotal', avgText(r.total, r.answered));
-  fillTopList('p_topList', r.topRows);
-
-  const now = new Date();
-  setText('printDateLine', `Automatisch gegenereerd op ${now.toLocaleDateString('nl-NL')} om ${now.toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'})}.`);
-
-  const tbody = document.getElementById('printRows');
-  tbody.innerHTML = r.rows.map(row => `
-    <tr>
-      <td>${row.n}</td>
-      <td>${row.part}</td>
-      <td>${row.text}</td>
-      <td>${row.answer}</td>
-      <td>${row.value ?? '—'}</td>
-    </tr>`).join('');
+function getHistory(){
+  try { return JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch(e) { return []; }
 }
-
 function persist(){
-  localStorage.setItem(storageKey, JSON.stringify({savedAt:new Date().toISOString(), responses:formState}));
+  localStorage.setItem(storageKey, JSON.stringify({savedAt:new Date().toISOString(), responses:formState, notes:notesEl.value}));
 }
 function restore(){
   try {
@@ -300,10 +337,239 @@ function restore(){
       const input = document.getElementById(`q${k}_${v}`);
       if (input) input.checked = true;
     });
+    notesEl.value = parsed.notes || '';
   } catch(e) {}
 }
 
+function saveSnapshotToHistory(result){
+  if (result.answered === 0) return;
+  const history = getHistory();
+  const snapshot = {
+    timestamp: new Date().toISOString(),
+    total: result.total,
+    avgA: result.avgA,
+    avgB: result.avgB,
+    avgTotal: result.avgTotal,
+    rows: result.rows.map(r => ({n:r.n, value:r.value})),
+    notes: result.notes
+  };
+  const last = history[history.length - 1];
+  const sameAsLast = last && JSON.stringify(last.rows) === JSON.stringify(snapshot.rows) && (last.notes || '') === (snapshot.notes || '');
+  if (!sameAsLast) {
+    history.push(snapshot);
+    localStorage.setItem(historyKey, JSON.stringify(history.slice(-30)));
+  }
+}
+
+function buildHistorySummaryText(prev, current){
+  if (!prev || !prev.rows) return 'Nog geen vergelijking beschikbaar.';
+  const totalDiff = current.total - (prev.total || 0);
+  const pieces = [`Totaalscore t.o.v. vorige keer: ${totalDiff === 0 ? 'gelijk gebleven' : (totalDiff > 0 ? '+' + totalDiff : totalDiff)}`];
+  const prevMap = Object.fromEntries(prev.rows.map(r => [r.n, r.value]));
+  const diffs = current.rows.map(r => ({...r, diff:(r.value ?? 0) - (prevMap[r.n] ?? 0)}));
+  const improved = diffs.filter(d => d.diff < 0).sort((a,b)=>a.diff-b.diff);
+  const worsened = diffs.filter(d => d.diff > 0).sort((a,b)=>b.diff-a.diff);
+  if (improved.length) pieces.push('Verbeterd: ' + improved.slice(0,8).map(d => `vraag ${d.n} (${d.diff})`).join(', '));
+  if (worsened.length) pieces.push('Meer aanwezig: ' + worsened.slice(0,8).map(d => `vraag ${d.n} (+${d.diff})`).join(', '));
+  if (!improved.length && !worsened.length) pieces.push('Geen itemverschillen ten opzichte van de vorige keer.');
+  return pieces.join(' | ');
+}
+
+function updateSummary(){
+  const r = compute();
+
+  setText('avgA_value', avgTextValue(r.avgA));
+  setText('avgB_value', avgTextValue(r.avgB));
+  setText('avgTotal_value', avgTextValue(r.avgTotal));
+  setText('scoreTotal_bottom', r.total);
+  setText('avgA_zone', r.avgA === null ? '—' : avgLabel(r.avgA));
+  setText('avgB_zone', r.avgB === null ? '—' : avgLabel(r.avgB));
+  setText('avgTotal_zone', r.avgTotal === null ? '—' : avgLabel(r.avgTotal));
+  fillTopList('topList_bottom', r.topRows, r.fifthValue);
+
+  r.rows.forEach(row => {
+    const s = document.getElementById(`scoreTag${row.n}`);
+    s.textContent = `Score: ${row.value ?? '—'}${row.value !== null ? ' (' + row.answer + ')' : ''}`;
+  });
+
+  setText('p_avgA_value', avgTextValue(r.avgA));
+  setText('p_avgB_value', avgTextValue(r.avgB));
+  setText('p_avgTotal_value', avgTextValue(r.avgTotal));
+  setText('p_scoreTotal', r.total);
+  setText('p_avgA_zone', r.avgA === null ? '—' : avgLabel(r.avgA));
+  setText('p_avgB_zone', r.avgB === null ? '—' : avgLabel(r.avgB));
+  setText('p_avgTotal_zone', r.avgTotal === null ? '—' : avgLabel(r.avgTotal));
+  fillTopList('p_topList', r.topRows, r.fifthValue);
+  setText('p_notes', r.notes || '—');
+
+  const now = new Date();
+  setText('printDateLine', `Automatisch gegenereerd op ${now.toLocaleDateString('nl-NL')} om ${now.toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'})}.`);
+
+  const tbody = document.getElementById('printRows');
+  tbody.innerHTML = r.rows.map(row => `
+    <tr>
+      <td>${row.n}</td>
+      <td>${row.part}</td>
+      <td>${esc(row.text)}</td>
+      <td>${row.answer}</td>
+      <td>${row.value ?? '—'}</td>
+    </tr>`).join('');
+
+  renderHistory(r);
+}
+
+function renderHistory(current){
+  const history = getHistory();
+  const meta = document.getElementById('historyMeta');
+  const printRowsEl = document.getElementById('printHistoryRows');
+  const printMetaEl = document.getElementById('p_historyMeta');
+  const printSummaryEl = document.getElementById('p_historySummary');
+  const combined = history.concat(current.answered ? [{timestamp:new Date().toISOString(), total:current.total, avgTotal:current.avgTotal, rows:current.rows.map(r => ({n:r.n, value:r.value})), notes:current.notes, current:true}] : []);
+  if (!history.length) {
+    meta.textContent = 'Nog geen eerdere metingen gevonden.';
+    printMetaEl.textContent = 'Nog geen eerdere metingen gevonden.';
+    printSummaryEl.textContent = 'Nog geen vergelijking beschikbaar.';
+    printRowsEl.innerHTML = current.answered ? `<tr><td>Huidig</td><td>${new Date().toLocaleDateString('nl-NL')}</td><td>${current.total}</td><td>${avgTextValue(current.avgTotal)}</td><td>Huidige meting</td></tr>` : '<tr><td colspan="5">Nog geen gegevens.</td></tr>';
+    drawTrend(combined);
+    drawDelta(null);
+    document.getElementById('deltaText').textContent = 'Na je eerste opgeslagen PDF verschijnen hier de vergelijkingen.';
+    document.getElementById('pdfDataMarker').textContent = current.answered ? 'ASRSHIST:' + encodeDataForPdf(combined.map(({current, ...rest}) => rest)) : '';
+    return;
+  }
+  meta.textContent = `${history.length} eerdere meting(en) gevonden op dit apparaat.`;
+  printMetaEl.textContent = `${history.length} eerdere meting(en) meegenomen in dit verslag.`;
+  drawTrend(combined);
+  const prev = history[history.length - 1];
+  drawDelta(computeDiff(prev, current));
+  const summaryText = buildHistorySummaryText(prev, current);
+  printSummaryEl.textContent = summaryText;
+  printRowsEl.innerHTML = combined.map((item, idx) => `<tr><td>${item.current ? 'Huidig' : 'Meting ' + (idx + 1)}</td><td>${new Date(item.timestamp).toLocaleDateString('nl-NL')}</td><td>${item.total ?? '—'}</td><td>${avgTextValue(item.avgTotal ?? null)}</td><td>${item.current ? 'Wordt in deze PDF opgeslagen' : 'Eerder meetmoment'}</td></tr>`).join('');
+  document.getElementById('pdfDataMarker').textContent = 'ASRSHIST:' + encodeDataForPdf(combined.map(({current, ...rest}) => rest));
+}
+
+function computeDiff(prev, current){
+  if (!prev || !prev.rows) {
+    document.getElementById('deltaText').textContent = 'Na je tweede opgeslagen PDF verschijnt hier wat verbeterd is en wat meer voorkomt.';
+    return null;
+  }
+  const prevMap = Object.fromEntries(prev.rows.map(r => [r.n, r.value]));
+  const diffs = current.rows.map(r => ({...r, diff:(r.value ?? 0) - (prevMap[r.n] ?? 0)}));
+  const improved = diffs.filter(d => d.diff < 0).sort((a,b)=>a.diff-b.diff);
+  const worsened = diffs.filter(d => d.diff > 0).sort((a,b)=>b.diff-a.diff);
+  const chunks = [];
+  if (improved.length) chunks.push('Verbeterd: ' + improved.map(d => `vraag ${d.n} (${d.diff})`).join(', '));
+  if (worsened.length) chunks.push('Meer aanwezig: ' + worsened.map(d => `vraag ${d.n} (+${d.diff})`).join(', '));
+  if (!chunks.length) chunks.push('Geen verschillen ten opzichte van de vorige keer.');
+  document.getElementById('deltaText').textContent = chunks.join(' | ');
+  return diffs;
+}
+
+function drawTrend(points){
+  const canvas = document.getElementById('trendCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  const pad = {l:44,r:16,t:18,b:32};
+  ctx.strokeStyle = '#d1d5db';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, canvas.height-pad.b);
+  ctx.lineTo(canvas.width-pad.r, canvas.height-pad.b);
+  ctx.stroke();
+  for (let i=0;i<=4;i++) {
+    const y = pad.t + i*((canvas.height-pad.t-pad.b)/4);
+    const score = Math.round((72*(4-i))/4);
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(String(score), 8, y+4);
+    ctx.strokeStyle = '#eef2f7';
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y); ctx.lineTo(canvas.width-pad.r, y); ctx.stroke();
+  }
+  if (!points.length) {
+    ctx.fillStyle = '#6b7280'; ctx.font = '14px sans-serif';
+    ctx.fillText('Nog geen gegevens', pad.l+10, canvas.height/2); return;
+  }
+  const maxX = Math.max(points.length-1,1);
+  ctx.strokeStyle = '#0f766e';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const x = pad.l + (i/maxX)*(canvas.width-pad.l-pad.r);
+    const y = canvas.height-pad.b - ((p.total || 0)/72)*(canvas.height-pad.t-pad.b);
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  points.forEach((p, i) => {
+    const x = pad.l + (i/maxX)*(canvas.width-pad.l-pad.r);
+    const y = canvas.height-pad.b - ((p.total || 0)/72)*(canvas.height-pad.t-pad.b);
+    ctx.fillStyle = p.current ? '#1f2937' : '#0f766e';
+    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#6b7280'; ctx.font = '11px sans-serif';
+    ctx.fillText(String(i+1), x-3, canvas.height-10);
+  });
+}
+
+function drawDelta(diffs){
+  const canvas = document.getElementById('deltaCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  const pad = {l:34,r:10,t:18,b:22};
+  const baseline = canvas.width/2;
+  ctx.strokeStyle = '#d1d5db';
+  ctx.beginPath();
+  ctx.moveTo(baseline, pad.t); ctx.lineTo(baseline, canvas.height-pad.b); ctx.stroke();
+  if (!diffs) {
+    ctx.fillStyle = '#6b7280'; ctx.font = '14px sans-serif';
+    ctx.fillText('Nog geen vergelijking', 20, canvas.height/2); return;
+  }
+  const rowH = (canvas.height-pad.t-pad.b)/18;
+  diffs.forEach((d, idx) => {
+    const y = pad.t + idx*rowH + rowH/2;
+    const width = Math.abs(d.diff) * 80;
+    ctx.fillStyle = d.diff < 0 ? '#86efac' : d.diff > 0 ? '#fca5a5' : '#e5e7eb';
+    if (d.diff < 0) ctx.fillRect(baseline - width, y-6, width, 12);
+    else ctx.fillRect(baseline, y-6, width, 12);
+    ctx.fillStyle = '#374151'; ctx.font = '11px sans-serif';
+    ctx.fillText(String(d.n), 8, y+4);
+    if (d.diff !== 0) ctx.fillText((d.diff > 0 ? '+' : '') + d.diff, baseline + (d.diff < 0 ? -width - 24 : width + 6), y+4);
+  });
+  ctx.fillStyle = '#6b7280'; ctx.font = '11px sans-serif';
+  ctx.fillText('lager dan vorige keer', baseline-120, 12);
+  ctx.fillText('hoger dan vorige keer', baseline+10, 12);
+}
+
+document.getElementById('pdfImport').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  const status = document.getElementById('importStatus');
+  if (!file) return;
+  status.textContent = 'PDF wordt lokaal ingelezen...';
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const encoded = extractEncodedHistoryFromPdfBytes(buf);
+    if (!encoded) {
+      status.textContent = 'Geen importeerbare ASRS-gegevens gevonden in deze PDF. Dit werkt het best met PDF’s die eerder vanuit deze pagina zijn opgeslagen.';
+      return;
+    }
+    const decoded = decodeDataFromPdf(encoded);
+    if (!Array.isArray(decoded) || !decoded.length) {
+      status.textContent = 'De PDF bevatte wel een code, maar die kon niet goed worden gelezen.';
+      return;
+    }
+    const merged = mergeHistoryEntries(decoded);
+    status.textContent = `${decoded.length} meting(en) uit PDF gelezen. Totaal lokaal beschikbaar: ${merged.length}.`;
+    updateSummary();
+  } catch(err) {
+    status.textContent = 'Importeren lukte niet op dit apparaat of met deze PDF.';
+  }
+});
+
 document.getElementById('savePdfBtn').addEventListener('click', () => {
+  const result = compute();
+  saveSnapshotToHistory(result);
   updateSummary();
   window.print();
 });
